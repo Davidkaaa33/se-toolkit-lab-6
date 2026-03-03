@@ -24,7 +24,7 @@ dev = [
 ]
 
 [tool.ruff.lint]
-select = [ "RET503" ]
+select = ["RET503"]
 
 [tool.poe.tasks]
 # Run server
