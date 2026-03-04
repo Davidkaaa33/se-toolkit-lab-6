@@ -19,9 +19,10 @@ Fix convention violations in a file using the report produced by `/review-file-b
    - **For `wiki/` files:**
      - `instructors/context/conventions/common.md`
      - `instructors/context/conventions/wiki.md`
-6. Work through the report **Findings** one group at a time. For each violation, apply the minimal edit that resolves it. Use line numbers from the report as a starting guide, but always verify against the current file content (earlier fixes may shift lines).
-7. Work through the report **Empty sections**. For each empty section that has no `<!-- TODO ... -->` marker, add `<!-- TODO fill in this section -->` directly below the heading. Empty sections that already contain a `<!-- TODO ... -->` cannot be auto-fixed — skip them and note them in the summary.
-8. **TODOs** cannot be auto-fixed — they require content that only the author can supply. List them all as skipped in the summary.
+6. **Conceptual findings** cannot be auto-fixed — they require content decisions that only the author can make. List them all as skipped in the summary.
+7. Work through the report **Convention findings** one group at a time. For each violation, apply the minimal edit that resolves it. Use line numbers from the report as a starting guide, but always verify against the current file content (earlier fixes may shift lines).
+8. Work through the report **Empty sections**. For each empty section that has no `<!-- TODO ... -->` marker, add `<!-- TODO fill in this section -->` directly below the heading. Empty sections that already contain a `<!-- TODO ... -->` cannot be auto-fixed — skip them and note them in the summary.
+9. **TODOs** cannot be auto-fixed — they require content that only the author can supply. List them all as skipped in the summary.
 
 ## Rules
 
@@ -36,4 +37,4 @@ Fix convention violations in a file using the report produced by `/review-file-b
 After all fixes are applied, print a short summary listing:
 - Number of convention violations fixed.
 - Number of empty sections fixed (TODO marker added).
-- Number of items skipped (empty sections already marked, TODOs), with reasons.
+- Number of items skipped (conceptual findings, empty sections already marked, TODOs), with reasons.
