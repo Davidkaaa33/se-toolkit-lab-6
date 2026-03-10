@@ -4,19 +4,16 @@
 
 - [1. `README.md` — Main entry point](#1-readmemd--main-entry-point)
   - [1.1. Key rules for `README.md`](#11-key-rules-for-readmemd)
-- [2. Lab setup files](#2-lab-setup-files)
-  - [2.1. `lab/tasks/setup.md` — Full setup](#21-labtaskssetupmd--full-setup)
-    - [2.1.1. Key rules for `setup.md`](#211-key-rules-for-setupmd)
-  - [2.2. `lab/tasks/setup-simple.md` — Lab-specific setup](#22-labtaskssetup-simplemd--lab-specific-setup)
-    - [2.2.1. Key rules for `setup-simple.md`](#221-key-rules-for-setup-simplemd)
-- [3. `wiki/git-workflow.md` — Reusable Git workflow](#3-wikigit-workflowmd--reusable-git-workflow)
-  - [3.1. Key rules for git workflow](#31-key-rules-for-git-workflow)
-- [4. Lab story and narrative](#4-lab-story-and-narrative)
-- [5. Security integration pattern](#5-security-integration-pattern)
-- [6. Database naming conventions](#6-database-naming-conventions)
-- [7. Checklist before publishing](#7-checklist-before-publishing)
+- [2. `wiki/git-workflow.md` — Reusable Git workflow](#2-wikigit-workflowmd--reusable-git-workflow)
+  - [2.1. Key rules for git workflow](#21-key-rules-for-git-workflow)
+- [3. Lab story and narrative](#3-lab-story-and-narrative)
+- [4. Security integration pattern](#4-security-integration-pattern)
+- [5. Database naming conventions](#5-database-naming-conventions)
+- [6. Checklist before publishing](#6-checklist-before-publishing)
 
-Use this file when creating or updating lab content: README, setup files, narrative, and cross-cutting patterns.
+Use this file when creating or updating lab content: README, narrative, and cross-cutting patterns.
+
+For setup file conventions (`lab/tasks/setup.md` and `lab/tasks/setup-simple.md`), see [setup.md](setup.md).
 
 ---
 
@@ -104,114 +101,7 @@ In simple words, you should be able to say:
 
 ---
 
-## 2. Lab setup files
-
-Two setup files live in `lab/tasks/`. They serve different audiences.
-
-- `setup.md` — full first-time setup. Written for a student who has never done any lab in this course. Covers every step from scratch: finding a partner, creating a VM, installing programs, forking, cloning, configuring the environment, and starting services. Use `(UPD)` labels to mark steps that must be redone for this specific lab even if done before.
-- `setup-simple.md` — lab-specific setup. Written for a returning student who has the base tools from the previous lab. Covers only what is new or changed: cleaning up the previous lab's services, forking the new repo, cloning, configuring environment files, and starting services.
-
-The README links to `setup-simple.md` by default, with a note directing first-timers to `setup.md`.
-
----
-
-### 2.1. `lab/tasks/setup.md` — Full setup
-
-Structure:
-
-```markdown
-# Lab setup
-
-- [1. Required steps](#1-required-steps)
-  - [1.1. (UPD) Find a partner](#11-upd-find-a-partner)
-  - [1.2. <Setup step>](#12-setup-step)
-  - ...
-- [2. Optional steps](#2-optional-steps)
-  - [2.1. <Enhancement>](#21-enhancement)
-  - ...
-
-## 1. Required steps
-
-> [!IMPORTANT]
-> Some steps have the `(UPD)` label.
->
-> These steps must be completed to get the right setup for this lab,
-> even if you have completed similar steps in the previous lab.
-
-### 1.1. (UPD) Find a partner
-
-1. Find a partner for this lab.
-2. Sit next to them.
-
-> [!IMPORTANT]
-> You work on tasks independently from your partner.
->
-> You and your partner work together when reviewing each other's work.
-
-### 1.2. <Setup step>
-...
-
----
-
-## 2. Optional steps
-
-These enhancements can make your life easier:
-
-<!-- no toc -->
-- [<Enhancement>](#21-enhancement)
-- ...
-```
-
-#### 2.1.1. Key rules for `setup.md`
-
-- Cover every step from scratch: partner, VM, programs, fork, clone, environment, start services.
-- Mark steps that must be redone for this lab with `(UPD)` in the heading. Explain at the top that `(UPD)` steps are required even if done before.
-- Partner setup is always step 1 (students review each other's PRs).
-- Each step links to wiki docs for the detailed how-to.
-- Separate required steps from optional enhancements with `---`.
-
----
-
-### 2.2. `lab/tasks/setup-simple.md` — Lab-specific setup
-
-Structure:
-
-```markdown
-# Lab setup
-
-- [1. Required steps](#1-required-steps)
-  - [1.1. Clean up the previous lab](#11-clean-up-the-previous-lab)
-  - [1.2. <Setup step>](#12-setup-step)
-  - ...
-
-## 1. Required steps
-
-> [!NOTE]
-> This lab builds on the same tools and setup from Lab <N>.
-> If you completed Lab <N>, most tools are already installed.
-> The main changes are: <short list of what's new or changed>.
-
-### 1.1. Clean up the previous lab
-
-...
-
-### 1.2. <Setup step>
-...
-```
-
-#### 2.2.1. Key rules for `setup-simple.md`
-
-- Target audience: returning students who have the base setup from the previous lab.
-- Do NOT include first-time-only steps: installing VS Code, Docker, Git, SSH, configuring Git, setting up the shell, creating a VM (unless the lab specifically requires a fresh VM).
-- Start with cleanup of the previous lab's services to free ports and disk space.
-- Include: fork setup (new repo per lab), clone, environment files, starting services locally, and deployment if the lab requires it.
-- Add a note at the top explaining what changed from the previous lab.
-- Do not use `(UPD)` labels — every step in this file is already lab-specific.
-- No optional steps section — optional enhancements are covered in `setup.md`.
-
----
-
-## 3. `wiki/git-workflow.md` — Reusable Git workflow
+## 2. `wiki/git-workflow.md` — Reusable Git workflow
 
 This file describes the workflow students follow for every task that produces code changes:
 
@@ -241,7 +131,7 @@ Outline:
 - [Clean up](#clean-up)
 ```
 
-### 3.1. Key rules for git workflow
+### 2.1. Key rules for git workflow
 
 - Every section links to the relevant wiki doc for the detailed how-to.
 - Task documents reference this file via `` [`Git workflow`](../../../wiki/git-workflow.md) ``.
@@ -250,7 +140,7 @@ Outline:
 
 ---
 
-## 4. Lab story and narrative
+## 3. Lab story and narrative
 
 - Frame the lab as a realistic work scenario (e.g., "You were hired by a company...", "Your team was asked to...").
 - Introduce a senior engineer (or team lead) giving the assignment.
@@ -274,7 +164,7 @@ Outline:
 
 ---
 
-## 5. Security integration pattern
+## 4. Security integration pattern
 
 > Include this section only if the lab involves API authentication or server hardening. Omit for labs without security concerns.
 
@@ -287,7 +177,7 @@ Introduce security as something students encounter naturally, not as a standalon
 
 ---
 
-## 6. Database naming conventions
+## 5. Database naming conventions
 
 Only include when the lab has a relational database layer.
 
@@ -301,7 +191,7 @@ Name tables according to their role in the schema:
 
 ---
 
-## 7. Checklist before publishing
+## 6. Checklist before publishing
 
 **Always required:**
 
@@ -319,10 +209,7 @@ Name tables according to their role in the schema:
 - [ ] `Git workflow` is referenced from tasks that produce code changes.
 - [ ] Acceptance criteria are concrete and verifiable.
 - [ ] Commit message format is documented (conventional commits).
-- [ ] `setup.md` covers all first-time steps: partner, VM, programs, fork, clone, environment, start services.
-- [ ] `setup-simple.md` covers only lab-specific steps: cleanup, fork, clone, environment, start services.
-- [ ] README links to `setup-simple.md` by default with a note directing first-timers to `setup.md`.
-- [ ] Partner/collaborator setup is documented.
+- [ ] Setup files pass the [Checklist](setup.md#4-checklist) in `setup.md`.
 - [ ] Diagrams use `.drawio.svg` format.
 - [ ] `<!-- TODO -->` markers exist for unfinished sections.
 

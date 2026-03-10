@@ -21,7 +21,8 @@ Read before making changes:
 Read before making changes:
 
 - [`contributing/configuration.md`](contributing/configuration.md) — repo structure, GitHub templates, VS Code config, task runner, Docker, CONTRIBUTORS, agent config, checklist
-- [`contributing/conventions/writing/lab.md`](contributing/conventions/writing/lab.md) — README structure, setup files, git workflow, narrative, security pattern, database naming, checklist
+- [`contributing/conventions/writing/lab.md`](contributing/conventions/writing/lab.md) — README structure, git workflow, narrative, security pattern, database naming, checklist
+- [`contributing/conventions/writing/setup.md`](contributing/conventions/writing/setup.md) — setup file structure and conventions (`setup.md`, `setup-simple.md`)
 
 ## When editing code (`backend/`, `frontend/`)
 
