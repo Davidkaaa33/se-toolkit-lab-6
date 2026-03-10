@@ -3,10 +3,11 @@ name: Close student task issues
 on:
   issues:
     types: [opened]
+  workflow_dispatch:
+
 
 jobs:
   close-task-issue:
-    if: contains(github.event.issue.title, '[Task]')
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -17,18 +18,39 @@ jobs:
         with:
           script: |
             const { owner, repo } = context.repo;
-            const issueNumber = context.payload.issue.number;
+            const contributorRoles = ['OWNER', 'MEMBER', 'COLLABORATOR'];
 
-            await github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number: issueNumber,
-              body: "This looks like a task issue for your own project — please create it in your fork, not the upstream repo. Issues here are for reporting problems with the lab itself."
-            });
+            async function closeTaskIssue(issueNumber) {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                body: "This looks like a task issue for your own project — please create it in your fork, not the upstream repo. Issues here are for reporting problems with the lab itself."
+              });
 
-            await github.rest.issues.update({
-              owner,
-              repo,
-              issue_number: issueNumber,
-              state: 'closed'
-            });
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                state: 'closed'
+              });
+            }
+
+            if (context.eventName === 'workflow_dispatch') {
+              const issues = await github.paginate(github.rest.issues.list, {
+                owner,
+                repo,
+                state: 'open',
+              });
+
+              for (const issue of issues) {
+                if (issue.pull_request) continue;
+                if (contributorRoles.includes(issue.author_association)) continue;
+                await closeTaskIssue(issue.number);
+              }
+            } else {
+              const { author_association } = context.payload.issue;
+              if (!contributorRoles.includes(author_association)) {
+                await closeTaskIssue(context.payload.issue.number);
+              }
+            }
