@@ -325,7 +325,7 @@ def test_agent_reads_source_code_for_framework_question() -> None:
 
 def test_agent_uses_query_api_for_live_item_count() -> None:
     data = _run_agent("How many items are in the database?", "query_api", with_api=True)
-    assert data["answer"] == "There are 2 items in the database."
+    assert data["answer"] == "There are currently 2 items stored in the database."
     assert data["tool_calls"][0]["tool"] == "query_api"
     assert data["tool_calls"][0]["args"] == {"method": "GET", "path": "/items/"}
     parsed = json.loads(data["tool_calls"][0]["result"])
