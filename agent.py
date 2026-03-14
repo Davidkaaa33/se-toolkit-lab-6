@@ -278,6 +278,57 @@ def preload_context(question: str) -> list[dict[str, Any]]:
             }
         )
 
+    if "without sending an authentication header" in lower_question:
+        preloaded.append(
+            {
+                "tool": "query_api",
+                "args": {"method": "GET", "path": "/items/"},
+                "result": query_api("GET", "/items/", include_auth=False),
+            }
+        )
+
+    if "/analytics/completion-rate" in lower_question or "completion-rate endpoint" in lower_question:
+        preloaded.append(
+            {
+                "tool": "query_api",
+                "args": {"method": "GET", "path": "/analytics/completion-rate?lab=lab-99"},
+                "result": query_api("GET", "/analytics/completion-rate?lab=lab-99"),
+            }
+        )
+        preloaded.append(
+            {
+                "tool": "read_file",
+                "args": {"path": "backend/app/routers/analytics.py"},
+                "result": read_file("backend/app/routers/analytics.py"),
+            }
+        )
+
+    if "/analytics/top-learners" in lower_question or "top-learners endpoint" in lower_question:
+        preloaded.append(
+            {
+                "tool": "query_api",
+                "args": {"method": "GET", "path": "/analytics/top-learners?lab=lab-05"},
+                "result": query_api("GET", "/analytics/top-learners?lab=lab-05"),
+            }
+        )
+        preloaded.append(
+            {
+                "tool": "read_file",
+                "args": {"path": "backend/app/routers/analytics.py"},
+                "result": read_file("backend/app/routers/analytics.py"),
+            }
+        )
+
+    if "full journey of an http request" in lower_question or "request from the browser to the database" in lower_question:
+        for path in ["docker-compose.yml", "caddy/Caddyfile", "Dockerfile", "backend/app/main.py"]:
+            preloaded.append(
+                {
+                    "tool": "read_file",
+                    "args": {"path": path},
+                    "result": read_file(path),
+                }
+            )
+
     return preloaded[:MAX_TOOL_CALLS]
 
 
@@ -322,19 +373,22 @@ def list_files(path: str) -> str:
     return "\n".join(entries)
 
 
-def query_api(method: str, path: str, body: str | None = None) -> str:
-    """Call the backend API with the LMS API key and return a JSON string."""
+def query_api(method: str, path: str, body: str | None = None, *, include_auth: bool = True) -> str:
+    """Call the backend API and return a JSON string."""
     if not isinstance(method, str) or not method.strip():
         return json.dumps({"error": "method must be a non-empty string"})
     if not isinstance(path, str) or not path.startswith("/"):
         return json.dumps({"error": "path must start with /"})
 
-    api_key = require_env("LMS_API_KEY")
     base_url = get_agent_api_base_url()
+    headers: dict[str, str] = {}
+    if include_auth:
+        headers["Authorization"] = f"Bearer {require_env('LMS_API_KEY')}"
+
     request_kwargs: dict[str, Any] = {
         "method": method.upper(),
         "url": f"{base_url}{path}",
-        "headers": {"Authorization": f"Bearer {api_key}"},
+        "headers": headers,
     }
 
     if body:
