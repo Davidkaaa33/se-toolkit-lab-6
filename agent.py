@@ -29,7 +29,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "read_file",
-            "description": "Read a file from the project repository.",
+            "description": "Read a wiki or source file from the project repository. Use this to answer documentation and code questions and to cite the exact file in source.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -47,7 +47,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "list_files",
-            "description": "List files and directories at a project path.",
+            "description": "List files and directories at a project path. Use this first to discover relevant wiki or source files before calling read_file.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -65,7 +65,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "query_api",
-            "description": "Call the deployed backend API for live data, status codes, or runtime errors.",
+            "description": "Call the deployed backend API for live data, status codes, authentication behavior, and runtime errors. Use this for current system facts instead of guessing.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -126,6 +126,52 @@ def require_env(name: str) -> str:
 def get_agent_api_base_url() -> str:
     """Return the backend base URL from the environment or the default."""
     return os.environ.get("AGENT_API_BASE_URL", DEFAULT_AGENT_API_BASE_URL).rstrip("/")
+
+
+def build_system_prompt(question: str) -> str:
+    """Add question-specific routing guidance for the model."""
+    lower_question = question.lower()
+    guidance: list[str] = []
+
+    if "wiki" in lower_question or "github" in lower_question or "ssh" in lower_question:
+        guidance.append(
+            "This is a wiki question. You must use list_files and/or read_file before answering. "
+            "Do not answer from memory."
+        )
+        guidance.append(
+            "For wiki questions, source should point to a wiki file and section anchor when possible."
+        )
+
+    if (
+        "source code" in lower_question
+        or "framework" in lower_question
+        or "dockerfile" in lower_question
+        or "docker-compose" in lower_question
+        or "router" in lower_question
+        or "etl" in lower_question
+        or "backend use" in lower_question
+    ):
+        guidance.append(
+            "This is a source-code question. You must use read_file on the relevant source files before answering."
+        )
+
+    if (
+        "how many" in lower_question
+        or "status code" in lower_question
+        or "/items/" in lower_question
+        or "/analytics/" in lower_question
+        or "database" in lower_question
+        or "running api" in lower_question
+        or "query the" in lower_question
+    ):
+        guidance.append(
+            "This is a live system question. You must use query_api before answering."
+        )
+
+    if not guidance:
+        return SYSTEM_PROMPT
+
+    return f"{SYSTEM_PROMPT}\n\nAdditional instructions for this question:\n- " + "\n- ".join(guidance)
 
 
 def resolve_repo_path(raw_path: str) -> Path:
@@ -316,7 +362,7 @@ def ask_llm(messages: list[dict[str, Any]]) -> dict[str, Any]:
 def run_agent(question: str) -> dict[str, Any]:
     """Run the agentic loop until the model returns a final answer."""
     messages: list[dict[str, Any]] = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": build_system_prompt(question)},
         {"role": "user", "content": question},
     ]
     tool_history: list[dict[str, Any]] = []
