@@ -1,11 +1,6 @@
-# Agent
+# Agent Architecture - Task 3: The System Agent
 
-This project uses a CLI system agent implemented in `agent.py`. The agent takes
-one user question from the command line, sends that question to an
-OpenAI-compatible chat completions API, executes any requested tools, and then
-prints one JSON object to stdout. The output always includes `answer` and
-`tool_calls`. The `source` field is optional in the sense that API-driven
-answers may leave it empty, but the JSON object still includes the field.
+This agent is a CLI that uses an **agentic loop** to call tools (`read_file`, `list_files`, `query_api`) for reading project documentation, querying the backend API, and returning a structured JSON response with the answer, optional source reference, and all tool calls made.
 
 The current agent has three tools. `list_files(path)` lists entries inside the
 repository, `read_file(path)` reads repository files, and `query_api(method,
