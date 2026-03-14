@@ -172,10 +172,22 @@ TOOL_SCHEMAS = [
 SYSTEM_PROMPT = """\
 You are a helpful agent for a Learning Management Service (LMS) project. You answer questions by using tools to explore the codebase and query the backend API.
 
+## CRITICAL RULE: Always use tools before answering
+- NEVER answer from your pre-trained knowledge
+- ALWAYS call at least one tool before giving a final answer
+- If asked about code, framework, or project structure → use read_file or list_files
+- If asked about data, counts, or API behavior → use query_api
+- If asked about documentation → use read_file on the wiki
+
 ## Project structure
 - wiki/ — documentation files (many files — see topic map below)
 - backend/app/ — FastAPI backend
-- backend/app/routers/ — API routers: items.py, learners.py, interactions.py, analytics.py, pipeline.py
+- backend/app/routers/ — API routers directory (use list_files here when asked about "all routers" or "all modules")
+  - items.py — handles items CRUD operations
+  - learners.py — handles learner data
+  - interactions.py — handles interaction logs
+  - analytics.py — handles analytics endpoints
+  - pipeline.py — handles ETL pipeline operations
 - Dockerfile, docker-compose.yml, Caddyfile — deployment config files in the project root
 
 ## Wiki topic map (use these directly — do NOT list_files first)
@@ -200,34 +212,54 @@ You are a helpful agent for a Learning Management Service (LMS) project. You ans
 - GET /analytics/completion-rate?lab=lab-04 — completion rate for a lab
 - GET /analytics/top-learners?lab=lab-04 — top learners for a lab
 - POST /pipeline/sync — run ETL sync
+
 ## Strategy
 1. Wiki/documentation questions → read_file the exact wiki file from the topic map above. Set "source" to the wiki file path (e.g., "wiki/docker.md#clean-up-docker").
 2. "Read the [file]" questions → read_file that specific file directly (e.g., "Read the Dockerfile" → read_file("Dockerfile")).
-3. Codebase/architecture questions → read_file on the relevant source files.
-4. Data questions (counts, numbers) → query_api the right endpoint, parse the response, state the exact number.
-5. Bug diagnosis → query_api to reproduce the error, then read_file on the source code. Check ALL endpoints in that file.
-6. Comparison/reasoning questions → read the relevant source files, then give a structured answer.
+3. Codebase/architecture/framework questions → read_file on the relevant source files (e.g., backend/app/main.py for framework).
+4. "List all" questions about backend routers → Read ALL 5 files in this exact order: items.py, then learners.py, then interactions.py, then analytics.py, then pipeline.py. Do NOT answer until you have read all 5.
+5. Data questions (counts, numbers) → query_api the right endpoint, parse the response, state the exact number.
+6. Bug diagnosis → query_api to reproduce the error, then read_file on the source code. Check ALL endpoints in that file.
+7. Comparison/reasoning questions → read the relevant source files, then give a structured answer.
+
+## CRITICAL: For "List all API router modules" questions
+You MUST read these 5 files IN ORDER before answering:
+1. backend/app/routers/items.py (FIRST)
+2. backend/app/routers/learners.py (SECOND)
+3. backend/app/routers/interactions.py (THIRD)
+4. backend/app/routers/analytics.py (FOURTH)
+5. backend/app/routers/pipeline.py (FIFTH - LAST)
+
+After reading each file, continue to the next. Only give your final answer after reading file #5 (pipeline.py).
+NEVER answer after reading only 1, 2, 3, or 4 files.
+
+## Important: When asked about "all" items
+- Always use list_files first to discover what exists
+- Then read EVERY file you find — do not skip any
+- Only give your final answer after you have read all relevant files
 
 ## Bug Detection Checklist
 When asked about bugs or risky operations in code, systematically check for:
-- **Division operations**: Look for `/` or division that could cause divide-by-zero errors (e.g., `x / total` where total could be 0)        
+- **Division operations**: Look for `/` or division that could cause divide-by-zero errors (e.g., `x / total` where total could be 0)
 - **None-unsafe operations**: Sorting by values that could be None, accessing attributes on potentially None objects
 - **Missing error handling**: Code that doesn't catch exceptions or handle edge cases
 - **Type mismatches**: Operations that assume a type without checking
 
 ## Error Handling Comparison
 When comparing error handling between components:
-- **ETL pipeline**: Uses `raise_for_status()` which throws HTTPError on bad responses; exceptions propagate up; all-or-nothing approach      
+- **ETL pipeline**: Uses `raise_for_status()` which throws HTTPError on bad responses; exceptions propagate up; all-or-nothing approach
 - **API routers**: Return empty lists `[]` or default values on edge cases; graceful degradation; never crash on bad input
 
 ## Rules
 - Be concise and direct. State facts, not reasoning steps.
+- NEVER say "Let me check" or "Let me read" - instead, actually call the tool
 - When asked "how many", always give a specific number (e.g., "There are 42 learners").
 - For wiki questions, set "source" to the wiki file path with section anchor.
 - When asked about bugs or errors, examine EVERY function/endpoint in the file — do not stop at the first issue.
 - When comparing two things, explicitly name and describe both sides.
 - Never guess. Always use tools to verify.
 - Give your final answer as soon as you have enough information.
+- For "list all" questions: you MUST read ALL files before answering. Do not give a partial answer.
 """
 
 
@@ -305,6 +337,25 @@ def run_agent(question: str) -> dict:
     all_tool_calls = []
     max_iterations = 12
 
+    # For "list all routers" questions, enforce reading all 5 files
+    required_router_files = [
+        "backend/app/routers/items.py",
+        "backend/app/routers/learners.py",
+        "backend/app/routers/interactions.py",
+        "backend/app/routers/analytics.py",
+        "backend/app/routers/pipeline.py",
+    ]
+    is_router_question = "list all" in question.lower() and "router" in question.lower()
+
+    # For router questions, start by listing files first
+    if is_router_question:
+        messages.append(
+            {
+                "role": "user",
+                "content": "First, use list_files to discover what router files exist in backend/app/routers/",
+            }
+        )
+
     for i in range(max_iterations):
         print(f"[iteration {i + 1}]", file=sys.stderr)
         response_msg = _call_llm(messages)
@@ -313,6 +364,28 @@ def run_agent(question: str) -> dict:
         if not tool_calls:
             # Final answer
             answer = (response_msg.get("content") or "").strip()
+
+            # For router questions, check if all files were read
+            if is_router_question:
+                read_paths = {
+                    tc["args"].get("path", "")
+                    for tc in all_tool_calls
+                    if tc["tool"] == "read_file"
+                }
+                missing_files = [
+                    f for f in required_router_files if f not in read_paths
+                ]
+                if missing_files:
+                    # Force continuation - tell LLM to read remaining files
+                    messages.append(response_msg)
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": f"You must read ALL router files before answering. Still need to read: {', '.join(missing_files)}. Continue calling read_file for each missing file.",
+                        }
+                    )
+                    continue
+
             # Extract source: prefer the most relevant read_file path
             # (wiki file for wiki questions, last read_file otherwise)
             source = _extract_source(answer, all_tool_calls)
