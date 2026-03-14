@@ -1,68 +1,37 @@
 # Agent
 
-This project includes a CLI documentation agent in `agent.py`.
+This project uses a CLI system agent implemented in `agent.py`. The agent takes
+one user question from the command line, sends that question to an
+OpenAI-compatible chat completions API, executes any requested tools, and then
+prints one JSON object to stdout. The output always includes `answer` and
+`tool_calls`. The `source` field is optional in the sense that API-driven
+answers may leave it empty, but the JSON object still includes the field.
 
-## How it works
+The current agent has three tools. `list_files(path)` lists entries inside the
+repository, `read_file(path)` reads repository files, and `query_api(method,
+path, body)` calls the deployed backend. The file tools are protected by a
+repo-root path check that rejects traversal outside the project directory. This
+prevents `../` access and keeps the agent limited to project files. The API
+tool reads `LMS_API_KEY` from environment variables and sends it in the
+`Authorization: Bearer ...` header. The backend base URL is not hardcoded. The
+agent reads `AGENT_API_BASE_URL` from the environment and falls back to
+`http://localhost:42002`.
 
-The agent:
+The system prompt tells the model how to choose tools. Wiki questions should
+use `list_files` and `read_file`. Source-code questions should use
+`read_file` on files such as `backend/app/main.py`, `docker-compose.yml`, or
+`Dockerfile`. Live system questions such as item counts, status codes, and
+runtime endpoint failures should use `query_api`. The agentic loop is the same
+core pattern from Task 2: send messages and tool schemas to the model, execute
+tool calls, append tool outputs as `tool` messages, and continue until the
+model returns a final answer or the tool-call cap is reached.
 
-1. reads a question from the command line
-2. loads LLM settings from `.env.agent.secret`
-3. sends the question, system prompt, and tool schemas to an OpenAI-compatible chat completions API
-4. executes tool calls from the model
-5. sends tool results back to the model
-6. prints a JSON response to stdout
-
-The JSON format is:
-
-```json
-{
-  "answer": "...",
-  "source": "wiki/file.md#section-anchor",
-  "tool_calls": []
-}
-```
-
-## Tools
-
-The agent defines two tools:
-
-- `list_files(path)` lists files and directories under a project path
-- `read_file(path)` reads a file from the project
-
-Both tools only allow paths inside the repository. Paths that try to escape the project directory are rejected.
-
-## Agentic Loop
-
-The agent uses a simple loop:
-
-1. send the current conversation and tool schemas to the model
-2. if the model asks for tools, execute them and append the results as `tool` messages
-3. if the model returns a final text response, parse it and exit
-
-The loop is capped at 10 tool calls.
-
-## System Prompt Strategy
-
-The system prompt tells the model to:
-
-- answer using the repository wiki
-- use `list_files` to discover wiki files
-- use `read_file` to inspect documents
-- return a final JSON object with `answer` and `source`
-
-## Configuration
-
-Create `.env.agent.secret` and set:
-
-```env
-LLM_API_KEY=your_api_key
-LLM_API_BASE=your_api_base
-LLM_MODEL=your_model_name
-```
-
-## How to run
-
-```bash
-uv run agent.py "What files are in the wiki?"
-```
+For Task 3, the most important lesson from the benchmark was that environment
+health matters as much as the code. The first `uv run run_eval.py --index 0`
+attempt failed with `0/10` progress because the configured OpenRouter free
+model returned `429` temporary upstream rate limiting before the first
+question could complete. That result showed that the backend stack itself was
+running and that `query_api` was not the first blocker. The local regression
+tests passed, including the `query_api` test with header verification, so the
+remaining benchmark risk is provider availability and then prompt/tool-choice
+quality once the LLM responds consistently.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Documentation agent with two local file tools."""
+"""System agent with wiki, source, and API tools."""
 
 from __future__ import annotations
 
@@ -12,14 +12,18 @@ from typing import Any
 import httpx
 
 
-ENV_FILE = Path(".env.agent.secret")
+ENV_FILES = [Path(".env.agent.secret"), Path(".env.docker.secret")]
 PROJECT_ROOT = Path(__file__).resolve().parent
 MAX_TOOL_CALLS = 10
-SYSTEM_PROMPT = """You answer questions using this repository's wiki.
-Use list_files to discover wiki files, then use read_file to inspect them.
-When you know the answer, respond with JSON:
-{"answer":"...","source":"wiki/file.md#section-anchor"}
-Always include a source reference from the wiki when possible."""
+DEFAULT_AGENT_API_BASE_URL = "http://localhost:42002"
+SYSTEM_PROMPT = """You answer questions about this repository and its running system.
+Use list_files to discover directories, use read_file to inspect wiki or source files,
+and use query_api for live backend data, auth behavior, and runtime errors.
+Use read_file for source-code questions such as framework, ports, Docker, and bug diagnosis.
+Use query_api for current counts, status codes, or endpoint failures.
+Respond with JSON:
+{"answer":"...","source":"optional-file-reference-or-empty-string"}
+If the answer comes from live API data, source may be an empty string."""
 TOOLS = [
     {
         "type": "function",
@@ -57,6 +61,32 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "query_api",
+            "description": "Call the deployed backend API for live data, status codes, or runtime errors.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "method": {
+                        "type": "string",
+                        "description": "HTTP method such as GET or POST.",
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "API path such as /items/ or /analytics/completion-rate?lab=lab-99.",
+                    },
+                    "body": {
+                        "type": "string",
+                        "description": "Optional JSON request body as a string.",
+                    },
+                },
+                "required": ["method", "path"],
+                "additionalProperties": False,
+            },
+        },
+    },
 ]
 
 
@@ -77,6 +107,12 @@ def load_env_file(path: Path) -> None:
             os.environ[key] = value
 
 
+def load_all_env_files() -> None:
+    """Load local convenience env files without overriding real environment values."""
+    for path in ENV_FILES:
+        load_env_file(path)
+
+
 def require_env(name: str) -> str:
     """Return a required environment variable or exit with an error."""
     value = os.environ.get(name, "").strip()
@@ -85,6 +121,11 @@ def require_env(name: str) -> str:
 
     print(f"Missing required environment variable: {name}", file=sys.stderr)
     raise SystemExit(1)
+
+
+def get_agent_api_base_url() -> str:
+    """Return the backend base URL from the environment or the default."""
+    return os.environ.get("AGENT_API_BASE_URL", DEFAULT_AGENT_API_BASE_URL).rstrip("/")
 
 
 def resolve_repo_path(raw_path: str) -> Path:
@@ -128,22 +169,74 @@ def list_files(path: str) -> str:
     return "\n".join(entries)
 
 
+def query_api(method: str, path: str, body: str | None = None) -> str:
+    """Call the backend API with the LMS API key and return a JSON string."""
+    if not isinstance(method, str) or not method.strip():
+        return json.dumps({"error": "method must be a non-empty string"})
+    if not isinstance(path, str) or not path.startswith("/"):
+        return json.dumps({"error": "path must start with /"})
+
+    api_key = require_env("LMS_API_KEY")
+    base_url = get_agent_api_base_url()
+    request_kwargs: dict[str, Any] = {
+        "method": method.upper(),
+        "url": f"{base_url}{path}",
+        "headers": {"Authorization": f"Bearer {api_key}"},
+    }
+
+    if body:
+        try:
+            request_kwargs["json"] = json.loads(body)
+        except json.JSONDecodeError:
+            request_kwargs["content"] = body
+            request_kwargs["headers"]["Content-Type"] = "application/json"
+
+    try:
+        with httpx.Client(timeout=20.0) as client:
+            response = client.request(**request_kwargs)
+    except httpx.HTTPError as exc:
+        return json.dumps({"error": str(exc)})
+
+    try:
+        payload_body: Any = response.json()
+    except ValueError:
+        payload_body = response.text
+
+    return json.dumps({"status_code": response.status_code, "body": payload_body})
+
+
 def execute_tool(name: str, arguments: dict[str, Any]) -> str:
     """Dispatch a supported tool call."""
-    path = arguments.get("path", "")
-    if not isinstance(path, str):
-        return "Error: path must be a string"
-
     if name == "read_file":
+        path = arguments.get("path", "")
+        if not isinstance(path, str):
+            return "Error: path must be a string"
         return read_file(path)
+
     if name == "list_files":
+        path = arguments.get("path", "")
+        if not isinstance(path, str):
+            return "Error: path must be a string"
         return list_files(path)
+
+    if name == "query_api":
+        method = arguments.get("method", "")
+        path = arguments.get("path", "")
+        body = arguments.get("body")
+        if not isinstance(method, str):
+            return json.dumps({"error": "method must be a string"})
+        if not isinstance(path, str):
+            return json.dumps({"error": "path must be a string"})
+        if body is not None and not isinstance(body, str):
+            return json.dumps({"error": "body must be a string when provided"})
+        return query_api(method, path, body)
+
     return f"Error: unknown tool: {name}"
 
 
 def extract_text_content(message: dict[str, Any]) -> str:
     """Extract assistant text from an OpenAI-compatible message."""
-    content = message.get("content", "")
+    content = message.get("content") or ""
 
     if isinstance(content, str):
         return content.strip()
@@ -236,7 +329,7 @@ def run_agent(question: str) -> dict[str, Any]:
 
         assistant_message: dict[str, Any] = {
             "role": "assistant",
-            "content": message.get("content", ""),
+            "content": message.get("content") or "",
         }
         if tool_calls:
             assistant_message["tool_calls"] = tool_calls
@@ -299,7 +392,7 @@ def main() -> int:
         print("Question must not be empty", file=sys.stderr)
         return 1
 
-    load_env_file(ENV_FILE)
+    load_all_env_files()
     output = run_agent(question)
     print(json.dumps(output))
     return 0
