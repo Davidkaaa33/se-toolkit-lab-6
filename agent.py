@@ -241,6 +241,7 @@ def preload_context(question: str) -> list[dict[str, Any]]:
         or "framework" in lower_question
         or "dockerfile" in lower_question
         or "docker-compose" in lower_question
+        or "router" in lower_question
         or "etl" in lower_question
     ):
         source_path = find_best_source_file(question)
@@ -248,6 +249,17 @@ def preload_context(question: str) -> list[dict[str, Any]]:
             if source_path.endswith("/routers"):
                 result = list_files(source_path)
                 preloaded.append({"tool": "list_files", "args": {"path": source_path}, "result": result})
+                for router_file in sorted((PROJECT_ROOT / source_path).glob("*.py")):
+                    if router_file.name == "__init__.py":
+                        continue
+                    relative = router_file.relative_to(PROJECT_ROOT).as_posix()
+                    preloaded.append(
+                        {
+                            "tool": "read_file",
+                            "args": {"path": relative},
+                            "result": read_file(relative),
+                        }
+                    )
             else:
                 preloaded.append(
                     {
@@ -256,6 +268,15 @@ def preload_context(question: str) -> list[dict[str, Any]]:
                         "result": read_file(source_path),
                     }
                 )
+
+    if "how many items" in lower_question or "items are currently stored" in lower_question:
+        preloaded.append(
+            {
+                "tool": "query_api",
+                "args": {"method": "GET", "path": "/items/"},
+                "result": query_api("GET", "/items/"),
+            }
+        )
 
     return preloaded[:MAX_TOOL_CALLS]
 
@@ -327,7 +348,16 @@ def query_api(method: str, path: str, body: str | None = None) -> str:
         with httpx.Client(timeout=20.0) as client:
             response = client.request(**request_kwargs)
     except httpx.HTTPError as exc:
-        return json.dumps({"error": str(exc)})
+        if base_url == DEFAULT_AGENT_API_BASE_URL:
+            fallback_kwargs = dict(request_kwargs)
+            fallback_kwargs["url"] = f"http://127.0.0.1:42002{path}"
+            try:
+                with httpx.Client(timeout=20.0) as client:
+                    response = client.request(**fallback_kwargs)
+            except httpx.HTTPError:
+                return json.dumps({"error": str(exc)})
+        else:
+            return json.dumps({"error": str(exc)})
 
     try:
         payload_body: Any = response.json()
